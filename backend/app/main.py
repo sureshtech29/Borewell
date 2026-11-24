@@ -12,7 +12,7 @@ from fastapi.responses import JSONResponse
 
 from . import __version__
 from .ratelimit import RateLimiter
-from .routers import ai, analysis, contact, layers, meta, report
+from .routers import ai, analysis, contact, layers, meta, report, telemetry
 from .services import Container, build_container
 from .settings import Settings, load_settings
 
@@ -61,7 +61,7 @@ def create_app(settings: Optional[Settings] = None, container: Optional[Containe
         log.exception("unhandled error on %s", request.url.path)
         return JSONResponse({"detail": "Internal server error"}, status_code=500)
 
-    for r in (meta.router, analysis.router, layers.router, report.router, contact.router, ai.router):
+    for r in (meta.router, analysis.router, layers.router, report.router, contact.router, ai.router, telemetry.router):
         app.include_router(r, prefix="/api")
 
     static_dir = Path(__file__).resolve().parents[1] / "static"
