@@ -262,3 +262,34 @@ CREATE TABLE IF NOT EXISTS contact_messages (
     lang              text,
     created_at        timestamptz NOT NULL DEFAULT now()
 );
+
+
+-- -----------------------------------------------------------------------------
+-- NWIC Telangana six-hourly telemetry (separate from daily historical readings)
+-- Store the publisher's numeric value unchanged until its sign/measurement
+-- convention is independently verified. This table is not synthetic/demo data.
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS groundwater_telemetry_stations (
+    station_code text PRIMARY KEY,
+    station_name text NOT NULL,
+    district text,
+    latitude double precision NOT NULL CHECK (latitude BETWEEN -90 AND 90),
+    longitude double precision NOT NULL CHECK (longitude BETWEEN -180 AND 180),
+    agency text,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS groundwater_telemetry_stations_district_ix
+    ON groundwater_telemetry_stations (district);
+
+CREATE TABLE IF NOT EXISTS groundwater_telemetry_readings (
+    telemetry_id bigserial PRIMARY KEY,
+    station_code text NOT NULL REFERENCES groundwater_telemetry_stations(station_code) ON DELETE CASCADE,
+    observed_at timestamptz NOT NULL,
+    level_value_m double precision NOT NULL,
+    source_record_id text,
+    imported_at timestamptz NOT NULL DEFAULT now(),
+    UNIQUE (station_code, observed_at)
+);
+CREATE INDEX IF NOT EXISTS groundwater_telemetry_readings_latest_ix
+    ON groundwater_telemetry_readings (station_code, observed_at DESC);
