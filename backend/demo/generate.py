@@ -14,6 +14,8 @@ from __future__ import annotations
 
 import math
 from datetime import date
+import json
+from pathlib import Path
 
 import numpy as np
 
@@ -294,32 +296,63 @@ def build_demo_dataset(seed: int = 20260630, cfg: StateConfig | None = None) -> 
             ds.rain_cells.append(RainCell(f"demo025_{rlon:.2f}_{rlat:.2f}", float(rlat), float(rlon), annual))
 
     # ---- observation wells with seasonal readings --------------------------------------------------------------
-    f_w = _field(rng, (10, 30))
-    wells_xy: list[tuple[float, float]] = []
-    tries = 0
-    while len(wells_xy) < 130 and tries < 8000:
-        tries += 1
-        lon = rng.uniform(LON0 + 0.03, LON1 - 0.03)
-        lat = rng.uniform(LAT0 + 0.03, LAT1 - 0.03)
-        x, y = (float(v) for v in _xy(lon, lat))
-        if all(math.hypot(x - a, y - b) >= 6.0 for a, b in wells_xy):
-            wells_xy.append((x, y))
-            lon_lat = (lon, lat)
-            i = min(int((lat - LAT0) // STEP), nrows - 1)
-            j = min(int((lon - LON0) // STEP), ncols - 1)
-            base = float(np.clip(11 + 0.45 * tpi[i, j] + 4 * float(f_w(np.array(x), np.array(y))) + rng.normal(0, 2), 2.5, 48))
-            trend = float(np.clip(rng.normal(0.12, 0.25), -0.3, 0.9))
-            n = len(wells_xy)
-            readings = []
-            for yr in range(2016, 2027):
-                pre = max(1.0, base + trend * (yr - 2016) + float(rng.normal(0, 0.9)))
-                readings.append(Reading(date(yr, 5, 15), "pre_monsoon", round(pre, 2)))
-                if yr <= 2025:
-                    post = max(0.8, 0.55 * pre + float(rng.normal(0, 0.8)))
-                    readings.append(Reading(date(yr, 11, 15), "post_monsoon", round(post, 2)))
-            ds.wells.append(ObservationWell(well_id=n, station_code=f"DEMO-OW-{n:03d}", lat=lat, lon=lon,
-                                            readings=readings, name=f"Demo observation well {n}", agency="DEMO",
-                                            source_id="demo_water_levels"))
+    real_wells_file = Path(__file__).resolve().parent / "telangana_nwic_wells.json"
+    if not real_wells_file.exists():
+        real_wells_file = Path(__file__).resolve().parents[1] / "data" / "telangana_nwic_wells.json"
+
+    if real_wells_file.exists():
+        with open(real_wells_file, "r", encoding="utf-8") as f:
+            w_data = json.load(f)
+        for item in w_data:
+            rds = [Reading(date.fromisoformat(r["date"]), r["season"], float(r["depth_to_water_m"])) for r in item.get("readings", [])]
+            ds.wells.append(ObservationWell(
+                well_id=item["well_id"],
+                station_code=item["station_code"],
+                lat=float(item["lat"]),
+                lon=float(item["lon"]),
+                readings=rds,
+                name=item["name"],
+                agency=item.get("agency", "Telangana GW"),
+                source_id="nwic_telangana_gw"
+            ))
+        ds.sources["nwic_telangana_gw"] = SourceRef(
+            source_id="nwic_telangana_gw",
+            name_en="Ground Water Level Telemetry (NWIC/NWDP Telangana)",
+            name_te="భూగర్భ జల మట్టాల టెలిమెట్రీ (NWIC/NWDP తెలంగాణ)",
+            publisher="National Water Informatics Centre (NWIC) & Telangana Ground Water Department",
+            layer_kind="water_level",
+            url="https://nwdp.nwic.gov.in/dataset/ground-water-level-telemetry-daily-telangana-gw/resource/ce37832e-2783-423f-90e2-ab40eaa32ed1",
+            license="Government Open Data Licence - India (GODL)",
+            data_last_updated=date(2026, 11, 20),
+            is_demo=False
+        )
+    else:
+        f_w = _field(rng, (10, 30))
+        wells_xy: list[tuple[float, float]] = []
+        tries = 0
+        while len(wells_xy) < 130 and tries < 8000:
+            tries += 1
+            lon = rng.uniform(LON0 + 0.03, LON1 - 0.03)
+            lat = rng.uniform(LAT0 + 0.03, LAT1 - 0.03)
+            x, y = (float(v) for v in _xy(lon, lat))
+            if all(math.hypot(x - a, y - b) >= 6.0 for a, b in wells_xy):
+                wells_xy.append((x, y))
+                lon_lat = (lon, lat)
+                i = min(int((lat - LAT0) // STEP), nrows - 1)
+                j = min(int((lon - LON0) // STEP), ncols - 1)
+                base = float(np.clip(11 + 0.45 * tpi[i, j] + 4 * float(f_w(np.array(x), np.array(y))) + rng.normal(0, 2), 2.5, 48))
+                trend = float(np.clip(rng.normal(0.12, 0.25), -0.3, 0.9))
+                n = len(wells_xy)
+                readings = []
+                for yr in range(2016, 2027):
+                    pre = max(1.0, base + trend * (yr - 2016) + float(rng.normal(0, 0.9)))
+                    readings.append(Reading(date(yr, 5, 15), "pre_monsoon", round(pre, 2)))
+                    if yr <= 2025:
+                        post = max(0.8, 0.55 * pre + float(rng.normal(0, 0.8)))
+                        readings.append(Reading(date(yr, 11, 15), "post_monsoon", round(post, 2)))
+                ds.wells.append(ObservationWell(well_id=n, station_code=f"DEMO-OW-{n:03d}", lat=lat, lon=lon,
+                                                readings=readings, name=f"Demo observation well {n}", agency="DEMO",
+                                                source_id="demo_water_levels"))
 
     # ---- gazetteer ---------------------------------------------------------------------------------------------------
     pid = 0

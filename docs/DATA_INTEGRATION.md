@@ -186,6 +186,19 @@ Two CSV files.
 `readings.csv`: `station_code, date, depth_to_water_m` (required) and optional `season`
 (`pre_monsoon`, `monsoon`, `post_monsoon`, `winter`; derived from the date when absent).
 
+#### Automated NWDP / NWIC Telangana Real-Time Telemetry Pipeline
+You can fetch and convert real-time telemetry observation data directly from the National Water Data Portal (NWIC) & Telangana State Ground Water Department:
+
+```bash
+# 1. Fetch real-time telemetry data from NWDP (resource ce37832e-2783-423f-90e2-ab40eaa32ed1)
+python -m scripts.etl.nwic_telemetry --api-limit 50000 --out-dir data
+
+# 2. (Optional: PostGIS mode) Load into PostGIS database
+python -m scripts.etl.load wells --stations data/stations.csv --readings data/readings.csv --source-id nwic_telangana_gw
+```
+
+In in-memory mode, placing `telangana_nwic_wells.json` inside `backend/demo/` or `backend/data/` automatically activates the real telemetry stations and water-table measurements.
+
 ```bash
 python -m scripts.etl.load wells --stations stations.csv --readings readings.csv --source-id cgwb_gwl_2025
 ```
