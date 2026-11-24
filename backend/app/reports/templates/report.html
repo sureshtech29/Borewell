@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="{{ lang }}">
+<head>
+<meta charset="utf-8">
+<title>{{ L('report_title') }} - {{ a.location.lat }}, {{ a.location.lon }}</title>
+<style>
+  @page {
+    size: A4; margin: 16mm 14mm 18mm 14mm;
+    @bottom-center { content: "{{ L('page') }} " counter(page) " / " counter(pages); font-size: 8pt; color: #5b6770; }
+    {% if demo %}@top-center { content: "{{ L('demo_watermark') }}"; font-size: 8pt; font-weight: 700; color: #b42318; }{% endif %}
+
+  }
+  * { box-sizing: border-box; }
+  html { font-family: "Noto Sans Telugu", "Noto Sans", "Lohit Telugu", "Nirmala UI", "Gautami", "DejaVu Sans", Arial, sans-serif;
+         font-size: 10pt; color: #17212b; line-height: 1.45; }
+  body { margin: 0; }
+  h1 { font-size: 18pt; margin: 0 0 2pt; }
+  h2 { font-size: 12pt; margin: 14pt 0 5pt; padding-bottom: 2pt; border-bottom: 1.5px solid #cfd8de; color: #0f3d63; break-after: avoid; }
+  p { margin: 3pt 0; }
+  .muted { color: #5b6770; font-size: 9pt; }
+  .head { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 3px solid #0f3d63; padding-bottom: 6pt; }
+  .app { font-size: 9pt; font-weight: 700; letter-spacing: .04em; color: #0f3d63; }
+  .box { border: 1.5px solid #b42318; background: #fff4f2; padding: 6pt 8pt; border-radius: 4pt; margin: 8pt 0; font-size: 9.5pt; }
+  .box.demo { border-color: #b42318; }
+  .box.info { border-color: #0f3d63; background: #f1f6fa; }
+  .badge { display: inline-block; padding: 4pt 12pt; border-radius: 14pt; font-weight: 700; font-size: 13pt; }
+  .grid { display: flex; gap: 10pt; }
+  .grid > div { flex: 1; }
+  .kv { width: 100%; border-collapse: collapse; }
+  .kv td { padding: 2pt 4pt; vertical-align: top; }
+  .kv td:first-child { color: #5b6770; width: 38%; }
+  table.t { width: 100%; border-collapse: collapse; font-size: 9pt; }
+  table.t th { text-align: left; background: #eef3f7; padding: 3pt 4pt; border-bottom: 1.5px solid #cfd8de; }
+  table.t td { padding: 3pt 4pt; border-bottom: .5px solid #dde4e9; vertical-align: top; }
+  table.t tr { break-inside: avoid; }
+  td.num, th.num { text-align: right; white-space: nowrap; }
+  .bar { height: 6pt; background: #e3e9ee; border-radius: 3pt; width: 70pt; display: inline-block; vertical-align: middle; }
+  .bar > i { display: block; height: 100%; background: #0f3d63; border-radius: 3pt; }
+  ul { margin: 3pt 0 3pt 14pt; padding: 0; }
+  li { margin: 2pt 0; }
+  .big { font-size: 15pt; font-weight: 700; }
+  .na { color: #8a959e; font-style: italic; }
+  .sw { display: inline-block; width: 8pt; height: 8pt; border-radius: 2pt; margin-right: 3pt; vertical-align: baseline; }
+  .foot { margin-top: 14pt; font-size: 8.5pt; color: #3d4852; border-top: 1px solid #cfd8de; padding-top: 6pt; }
+  section { break-inside: auto; }
+  .keep { break-inside: avoid; }
+</style>
+</head>
+<body>
+
+<div class="head">
+  <div>
+    <div class="app">{{ L('app_name') }}</div>
+    <h1>{{ L('report_title') }}</h1>
+  </div>
+  <div class="muted" style="text-align:right">
+    {{ L('generated_on') }}: {{ ist(a.generated_at) }}<br>
+    {{ L('last_updated') }}: {{ fdate(a.data_last_updated) or L('not_available') }}
+  </div>
+</div>
+
+{% if demo %}
+<div class="box demo"><strong>{% for w in a.warnings if w.code == 'demo_data' %}{{ t(w.text) }}{% else %}{{ L('demo_watermark') }}{% endfor %}</strong></div>
+{% endif %}
+
+<div class="box info keep"><strong>{{ L('disclaimer_title') }}:</strong> {{ t(a.disclaimer) }}</div>
+
+<h2>{{ L('location') }}</h2>
+{% set r = a.location.region %}
+<table class="kv">
+  <tr><td>{{ L('coordinates') }}</td><td>{{ '%.5f' % a.location.lat }}, {{ '%.5f' % a.location.lon }}
+      {% if a.location.accuracy_m is not none %}(±{{ a.location.accuracy_m|round|int }} {{ L('unit.m') }}){% endif %}</td></tr>
+  {% if r %}
+  <tr><td>{{ L('state') }}</td><td>{{ t(r.state) }}</td></tr>
+  {% if r.district %}<tr><td>{{ L('district') }}</td><td>{{ t(r.district) }}</td></tr>{% endif %}
+  {% if r.mandal %}<tr><td>{{ L('mandal') }}</td><td>{{ t(r.mandal) }}</td></tr>{% endif %}
+  {% if r.village %}<tr><td>{{ L('village') }}</td><td>{{ t(r.village) }}</td></tr>{% endif %}
+  {% if r.method == 'nearest_place' and r.nearest_place_km is not none %}
+  <tr><td></td><td class="muted">{{ L('nearest_place_note') }} ({{ r.nearest_place_km }} {{ L('unit.km') }})</td></tr>
+  {% endif %}
+  {% if r.gw_category %}<tr><td>CGWB / SGWB</td><td>{{ t(r.gw_category.label) }}{% if r.gw_category.year %} ({{ r.gw_category.year }}){% endif %}</td></tr>{% endif %}
+  {% endif %}
+</table>
+
+<h2>{{ L('potential') }}</h2>
+{% set p = a.potential %}
+{% set dark = p['class'] in ['low', 'insufficient_data'] %}
+<div class="grid keep">
+  <div>
+    <span class="badge" style="background: {{ p.color }}; color: {{ '#17212b' if dark else '#ffffff' }}">
+      {% if a.status_title %}{{ t(a.status_title) }}{% else %}{{ t(p.label) }}{% endif %}
+    </span>
+    {% if ok %}<p class="muted" style="margin-top:6pt">{{ L('score') }}: {{ p.score }}</p>{% endif %}
+    {% if p.insufficient_reason %}<p>{{ t(p.insufficient_reason) }}</p>{% endif %}
+  </div>
+  {% if a.confidence %}
+  <div>
+    <div class="muted">{{ L('confidence') }}</div>
+    <div class="big">{{ t(a.confidence.label) }}</div>
+  </div>
+  {% endif %}
+</div>
+<p class="muted">{{ t(p.note) }}</p>
+{% if ok and p.regional_class != p['class'] %}
+<p class="muted">{{ L('regional_class') }}: {{ t(p.regional_label) }} ({{ p.regional_score }}) &rarr; {{ L('final_class') }}: {{ t(p.label) }} ({{ p.score }})</p>
+{% endif %}
+
+{% if a.confidence %}
+<h2>{{ L('confidence') }}</h2>
+<p class="muted">{{ t(a.confidence.note) }}</p>
+<table class="t">
+  <tr><th>{{ L('factor') }}</th><th>{{ L('value') }}</th><th class="num">{{ L('weight') }}</th></tr>
+  {% for c in a.confidence.components %}
+  <tr><td>{{ t(c.label) }}</td>
+      <td><span class="bar"><i style="width: {{ (c.value * 100)|round|int }}%"></i></span> {{ (c.value * 100)|round|int }}%</td>
+      <td class="num">{{ (c.weight * 100)|round|int }}%</td></tr>
+  {% endfor %}
+</table>
+{% endif %}
+
+{% if ok %}
+<h2>{{ L('water_table') }}</h2>
+{% set w = a.water_table %}
+{% if w and w.available %}
+<div class="keep">
+<table class="t">
+  <tr><th></th><th>{{ L('value') }} ({{ L('unit.ft') }})</th><th>{{ L('value') }} ({{ L('unit.m') }})</th></tr>
+  <tr><td>{{ L('pre_monsoon') }}</td>
+      <td>{{ w.pre_monsoon.range_ft[0] }} - {{ w.pre_monsoon.range_ft[1] }}{% if w.pre_monsoon.estimate_ft is defined %} (~{{ w.pre_monsoon.estimate_ft }}){% endif %}</td>
+      <td>{{ w.pre_monsoon.range_m[0] }} - {{ w.pre_monsoon.range_m[1] }}</td></tr>
+  {% if w.post_monsoon %}
+  <tr><td>{{ L('post_monsoon') }}</td>
+      <td>{{ w.post_monsoon.range_ft[0] }} - {{ w.post_monsoon.range_ft[1] }}{% if w.post_monsoon.estimate_ft is defined %} (~{{ w.post_monsoon.estimate_ft }}){% endif %}</td>
+      <td>{{ w.post_monsoon.range_m[0] }} - {{ w.post_monsoon.range_m[1] }}</td></tr>
+  {% endif %}
+</table>
+<p class="muted">{{ L('wells_used') }}: {{ w.n_wells }} (&le; {{ w.radius_km|round|int }} {{ L('unit.km') }}; {{ w.nearest_km }} {{ L('unit.km') }}),
+  {{ L('last_updated') }}: {{ fdate(w.latest_reading_on) }}</p>
+{% if w.trend_m_per_yr is not none %}
+{# trend_m_per_yr > 0 means the water table is getting deeper, i.e. the water level is FALLING #}
+{% set tr = w.trend_m_per_yr|abs %}
+<p class="muted">{% if tr < 0.05 %}{{ L('trend_stable') }}{% elif w.trend_m_per_yr > 0 %}{{ L('trend_falling', m='%.2f'|format(tr), ft='%.1f'|format(tr * 3.28084)) }}{% else %}{{ L('trend_rising', m='%.2f'|format(tr), ft='%.1f'|format(tr * 3.28084)) }}{% endif %}</p>
+{% endif %}
+<p class="muted">{{ t(w.note) }}</p>
+</div>
+{% else %}
+<p class="na">{{ L('not_available') }}</p>
+{% endif %}
+
+<h2>{{ L('depth_range') }}</h2>
+{% set d = a.drilling_depth %}
+{% if d and d.available %}
+<p class="big">{{ d.low_ft|int }} - {{ d.high_ft|int }} {{ L('unit.ft') }}</p>
+<p class="muted">{{ L('depth_basis', n=d.n_productive, r=d.radius_km|round|int) }}</p>
+<p class="muted">{{ t(d.note) }}</p>
+{% else %}
+<p class="na">{{ L('not_available') }}</p>
+{% for g in a.data_gaps if g.code.startswith('gap_depth_range') %}<p class="muted">{{ t(g.text) }}</p>{% endfor %}
+{% endif %}
+
+<h2>{{ L('factors') }}</h2>
+<table class="t">
+  <tr><th>{{ L('factor') }}</th><th>{{ L('value') }}</th><th class="num">{{ L('factor_score') }}</th><th class="num">{{ L('weight') }}</th></tr>
+  {% for f in a.factors %}
+  <tr>
+    <td>{{ t(f.label) }}</td>
+    <td>{% if not f.applicable %}<span class="na">{{ L('not_applicable') }}</span>
+        {% elif not f.available %}<span class="na">{{ L('not_available') }}</span>
+        {% else %}{{ t(f.display) }}{% endif %}</td>
+    <td class="num">{% if f.score is not none %}{{ f.score|round|int }}{% else %}-{% endif %}</td>
+    <td class="num">{% if f.applicable and f.available %}{{ (f.effective_weight * 100)|round|int }}%{% else %}-{% endif %}</td>
+  </tr>
+  {% endfor %}
+</table>
+
+{% if a.rainfall %}
+<p class="muted">{{ L('rainfall_recent') }} ({{ a.rainfall.years[0] }}-{{ a.rainfall.years[1] }}):
+  {{ a.rainfall.recent_mean_mm|round|int }} {{ L('unit.mm') }}{% if a.rainfall.normal_mm %} / {{ a.rainfall.normal_mm|round|int }} {{ L('unit.mm') }} ({{ '%+.0f' % a.rainfall.anomaly_pct }}%){% endif %}</p>
+{% endif %}
+
+{% set ev = a.local_evidence %}
+{% if ev %}
+<h2>{{ L('local_evidence') }}</h2>
+<p>{{ L('borewell_records_within', r=ev.radius_km|round|int) }}: <strong>{{ ev.n_records }}</strong>
+  {% if ev.nearest_record_km is not none %}({{ L('nearest') }} {{ ev.nearest_record_km }} {{ L('unit.km') }}){% endif %}</p>
+{% if ev.n_records %}
+<p>{% for o in ev.outcomes %}{{ t(o.label) }}: <strong>{{ o.count }}</strong>{% if not loop.last %} &middot; {% endif %}{% endfor %}</p>
+{% endif %}
+{% if ev.ves %}
+<p><strong>{{ L('ves_surveys') }}</strong></p>
+<ul>{% for v in ev.ves %}<li>{{ v.distance_km }} {{ L('unit.km') }}, {{ v.method }}{% if v.survey_year %} ({{ v.survey_year }}){% endif %}: {{ t(v.suitability_label) }}</li>{% endfor %}</ul>
+{% endif %}
+{% endif %}
+
+{% if a.statistical_model and a.statistical_model.status == 'available' %}
+<p class="muted">{{ t(a.statistical_model.text) }}</p>
+{% endif %}
+{% endif %}{# ok #}
+
+{% set warns = a.warnings|rejectattr('code', 'equalto', 'demo_data')|list %}
+{% if warns %}
+<h2>{{ L('warnings') }}</h2>
+<ul>{% for x in warns %}<li>{{ t(x.text) }}</li>{% endfor %}</ul>
+{% endif %}
+
+{% if a.data_gaps|length %}
+<h2>{{ L('data_gaps') }}</h2>
+<ul>{% for x in a.data_gaps %}<li>{{ t(x.text) }}</li>{% endfor %}</ul>
+{% endif %}
+
+{% if a.recommendations|length %}
+<h2>{{ L('recommendations') }}</h2>
+<ul>{% for x in a.recommendations %}<li>{{ t(x.text) }}</li>{% endfor %}</ul>
+{% endif %}
+
+<h2>{{ L('sources') }}</h2>
+<table class="t">
+  <tr><th>{{ L('source') }}</th><th>{{ L('publisher') }}</th><th>{{ L('last_updated') }}</th></tr>
+  {% for s in a.sources %}
+  <tr><td>{{ t(s.name) }}{% if s.license %}<br><span class="muted">{{ s.license }}</span>{% endif %}</td>
+      <td>{{ s.publisher }}{% if s.url %}<br><span class="muted">{{ s.url }}</span>{% endif %}</td>
+      <td>{{ fdate(s.data_last_updated) or L('not_available') }}</td></tr>
+  {% else %}
+  <tr><td colspan="3" class="na">{{ L('not_available') }}</td></tr>
+  {% endfor %}
+</table>
+
+<div class="foot keep">
+  <strong>{{ L('method') }}:</strong> {{ t(a.method.name) }} ({{ a.method.version }})<br>
+  <strong>{{ L('disclaimer_title') }}:</strong> {{ t(a.disclaimer) }}
+</div>
+
+</body>
+</html>

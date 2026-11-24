@@ -1,0 +1,264 @@
+# =============================================================================
+# Borewell Water Finder - state configuration: Telangana
+# =============================================================================
+# Everything state-specific lives here: taxonomy labels (English + Telugu),
+# scoring tables, thresholds and ETL alias maps. To add another state, copy
+# this file, change `state:`, review every table and load that state's data.
+#
+# IMPORTANT - scientific status of the numbers below
+#   The factor scores and weights are EXPERT-ASSIGNED PRIORS in the style of
+#   published weighted-overlay "groundwater potential zone" (GWPZ) studies.
+#   They are NOT fitted to Telangana borewell data. Before relying on the
+#   output in production they must be reviewed by a hydrogeologist and
+#   calibrated/validated against real borewell yield records (see
+#   docs/METHODOLOGY.md, "Calibration and validation").
+# =============================================================================
+
+state:
+  code: TG                       # ISO 3166-2:IN suffix
+  name: { en: Telangana, te: తెలంగాణ }
+  map_bounds: [[15.80, 77.20], [19.95, 81.80]]   # [[south, west], [north, east]]
+
+method:
+  version: "gwpz-wo-1.0"
+  name:
+    en: "Weighted-overlay groundwater potential index with local-evidence adjustment"
+    te: "స్థానిక ఆధారాల సర్దుబాటుతో కూడిన భూగర్భ జల సామర్థ్య సూచిక (వెయిటెడ్ ఓవర్‌లే)"
+
+# --- Potential classes (colours are fixed by the product specification) -------
+# min_score thresholds are PLACEHOLDERS tuned for the demo dataset. Re-calibrate them on the
+# real index distribution + borewell outcomes before production (docs/METHODOLOGY.md).
+classes:
+  high:
+    min_score: 65
+    color: "#1E6FD9"             # blue
+    label: { en: "High", te: "అధికం" }
+  moderate:
+    min_score: 53
+    color: "#2E9E4F"             # green
+    label: { en: "Moderate", te: "మధ్యస్థం" }
+  low:
+    min_score: 42
+    color: "#F2C230"             # yellow
+    label: { en: "Low", te: "తక్కువ" }
+  very_low:
+    min_score: 0
+    color: "#D64545"             # red
+    label: { en: "Very low", te: "చాలా తక్కువ" }
+  insufficient_data:
+    min_score: null
+    color: "#9AA3AD"             # grey
+    label: { en: "Insufficient data", te: "తగినంత సమాచారం లేదు" }
+
+settings:
+  # Hard-rock settings: yield varies sharply over tens of metres (fracture-controlled),
+  # so a regional index is a weaker guide and on-site geophysics matters more.
+  hard_rock_lithologies: [granite_gneiss, schist, quartzite, dolerite_dyke, basalt]
+
+# --- Regional (map) stage -------------------------------------------------------
+regional:
+  min_coverage: 0.55             # share of applicable factor weight that must have data
+  required_factors: [lithology]  # no lithology => never classified
+
+# Weights sum to 1.0 (validated at start-up). Missing factors are dropped and the
+# remaining weights are re-normalised; the lost coverage lowers confidence.
+factors:
+  lithology:
+    weight: 0.20
+    kind: categorical
+    input: lithology_class
+    label: { en: "Geological formation", te: "భౌగోళిక శిలా నిర్మాణం" }
+    classes:
+      alluvium:       { score: 90, label: { en: "Alluvium (river sand / silt)", te: "ఒండ్రు నిక్షేపాలు (నదీ ఇసుక / సిల్ట్)" } }
+      sandstone:      { score: 70, label: { en: "Sandstone (Gondwana / Cuddapah)", te: "ఇసుకరాయి (గోండ్వానా / కడప)" } }
+      limestone:      { score: 65, label: { en: "Limestone / dolomite", te: "సున్నపురాయి / డోలమైట్" } }
+      basalt:         { score: 55, label: { en: "Basalt (Deccan Trap)", te: "బసాల్ట్ (దక్కన్ ట్రాప్)" } }
+      granite_gneiss: { score: 42, label: { en: "Granite / gneiss (weathered-fractured)", te: "గ్రానైట్ / నైస్ (శైథిల్య-పగుళ్ల శిల)" } }
+      schist:         { score: 35, label: { en: "Schist / phyllite", te: "షిస్ట్ / ఫిలైట్" } }
+      shale:          { score: 30, label: { en: "Shale / clay-rich rock", te: "షేల్ / బంకమట్టి శిల" } }
+      quartzite:      { score: 25, label: { en: "Quartzite", te: "క్వార్ట్జైట్" } }
+      dolerite_dyke:  { score: 20, label: { en: "Dolerite dyke (barrier)", te: "డోలరైట్ డైక్ (అడ్డంకి)" } }
+
+  aquifer:
+    weight: 0.10
+    kind: categorical
+    input: aquifer_class
+    label: { en: "Aquifer type", te: "జలధర (అక్విఫర్) రకం" }
+    classes:
+      alluvial:                      { score: 85, label: { en: "Alluvial aquifer", te: "ఒండ్రు జలధర" } }
+      consolidated_sedimentary:      { score: 65, label: { en: "Consolidated sedimentary aquifer", te: "శిలారూప అవక్షేప జలధర" } }
+      basalt_aquifer:                { score: 55, label: { en: "Basalt aquifer", te: "బసాల్ట్ జలధర" } }
+      weathered_fractured_crystalline: { score: 45, label: { en: "Weathered / fractured crystalline aquifer", te: "శైథిల్య / పగుళ్ల స్ఫటికాకార జలధర" } }
+      massive_crystalline:           { score: 25, label: { en: "Massive crystalline rock (limited groundwater)", te: "ఘన స్ఫటికాకార శిల (పరిమిత జలం)" } }
+
+  soil:
+    weight: 0.08
+    kind: categorical
+    input: soil_class
+    label: { en: "Soil texture", te: "నేల రకం" }
+    classes:
+      sand:          { score: 85, label: { en: "Sand", te: "ఇసుక నేల" } }
+      sandy_loam:    { score: 80, label: { en: "Sandy loam", te: "ఇసుక గరప నేల" } }
+      loam:          { score: 70, label: { en: "Loam", te: "గరప నేల" } }
+      red_soil:      { score: 62, label: { en: "Red soil (sandy clay loam)", te: "ఎర్ర నేల" } }
+      lateritic:     { score: 55, label: { en: "Lateritic soil", te: "లేటరైట్ నేల" } }
+      clay_loam:     { score: 45, label: { en: "Clay loam", te: "బంకమట్టి గరప నేల" } }
+      black_cotton:  { score: 30, label: { en: "Black cotton soil (clayey)", te: "నల్ల రేగడి నేల" } }
+      clay:          { score: 25, label: { en: "Clay", te: "బంకమట్టి" } }
+      skeletal_rocky: { score: 30, label: { en: "Shallow rocky / skeletal soil", te: "నిస్సార రాతి నేల" } }
+
+  slope:
+    weight: 0.12
+    kind: numeric
+    input: slope_deg
+    unit: "deg"
+    label: { en: "Land slope", te: "భూమి వాలు" }
+    points: [[0, 100], [2, 90], [5, 70], [10, 45], [15, 25], [25, 8], [90, 0]]
+
+  drainage_density:
+    weight: 0.10
+    kind: numeric
+    input: drainage_density
+    unit: "km/km2"
+    label: { en: "Drainage density", te: "ప్రవాహ మార్గాల సాంద్రత" }
+    points: [[0, 95], [1, 85], [2, 65], [3, 45], [4, 25], [6, 8], [10, 0]]
+
+  lineament_density:
+    weight: 0.10
+    kind: numeric
+    input: lineament_density
+    unit: "km/km2"
+    label: { en: "Lineament (fracture) density", te: "లినియమెంట్ (పగుళ్ల) సాంద్రత" }
+    points: [[0, 10], [0.5, 40], [1.0, 65], [1.5, 82], [2.5, 95]]
+    not_applicable_for_lithology: [alluvium]    # lineaments do not control yield in porous media
+
+  rainfall:
+    weight: 0.10
+    kind: numeric
+    input: rainfall_normal_mm
+    unit: "mm"
+    label: { en: "Normal annual rainfall", te: "సగటు వార్షిక వర్షపాతం" }
+    points: [[300, 10], [500, 25], [700, 45], [900, 65], [1100, 80], [1500, 92]]
+
+  topographic_position:
+    weight: 0.05
+    kind: numeric
+    input: tpi_m
+    unit: "m"
+    label: { en: "Topographic position (relative height)", te: "భూ స్థల స్థానం (పరిసరాలతో పోలిస్తే ఎత్తు)" }
+    points: [[-20, 90], [-5, 75], [0, 60], [5, 45], [20, 25], [50, 8]]
+
+  water_level:
+    weight: 0.15
+    kind: numeric
+    input: pre_monsoon_dtw_m
+    unit: "m bgl"
+    label: { en: "Pre-monsoon depth to water table", te: "వర్షాకాలానికి ముందు భూగర్భ నీటి మట్టం లోతు" }
+    points: [[0, 95], [5, 85], [10, 65], [20, 40], [30, 22], [40, 10], [60, 2]]
+
+# --- Water-table summary (CGWB / State Ground Water Dept observation wells) -----
+water_table:
+  max_radius_km: 15.0
+  min_wells: 2
+  idw_power: 2.0
+  window_years: 3                  # readings used: last N years
+  trend_min_years: 4
+  decline_threshold_m_per_yr: 0.3  # water table deepening faster than this => warning
+
+# --- Local evidence (borewell records + geophysical surveys) ----------------------
+evidence:
+  borewell_radius_km: 3.0          # records inside this radius adjust the regional score
+  borewell_search_max_km: 10.0     # candidates fetched from the database
+  distance_decay_km: 1.0           # weight = 1 / (1 + d / decay)
+  prior_strength: 3.0              # regional score counts as this many pseudo-records
+  min_effective_n: 1.0             # below this the local evidence is ignored
+  max_location_accuracy_m: 500     # records less accurate than this get half weight
+  outcome_scores: { dry: 0, low: 35, moderate: 65, good: 90 }
+  yield_classes_lpm:               # used by ETL/demo to derive `outcome` from yield (litres/min)
+    low_max: 30
+    moderate_max: 120
+  productive_outcomes: [moderate, good]
+  ves_radius_km: 2.0
+  ves_weight: 2.0
+  ves_decay_km: 0.5
+  ves_scores: { good: 85, moderate: 55, poor: 15 }
+  disagreement_threshold: 30       # |regional - local| above this triggers a warning
+  disagreement_min_n: 3
+
+# --- Estimated drilling-depth range (shown ONLY when supported by records) ---------
+depth:
+  radii_km: [5.0, 10.0]            # tried in order
+  min_productive_records: 5
+  percentiles: [10, 90]
+  round_to_ft: 10
+
+# --- Confidence ------------------------------------------------------------------
+confidence:
+  weights:
+    coverage: 0.30
+    local_support: 0.25
+    water_level_support: 0.15
+    geophysics: 0.10
+    recency: 0.10
+    consistency: 0.10
+  local_n_full: 8                  # effective local records for full local_support score
+  wells_full: 3
+  wells_near_km: 5.0
+  wells_far_km: 10.0
+  recency_bands_years: [[2, 1.0], [5, 0.7], [10, 0.4]]   # older than last band => 0.2
+  recency_floor: 0.2
+  levels: { low_below: 0.35, high_from: 0.65 }
+  high_requires_effective_n: 5     # "high" confidence is impossible without local records
+
+# --- Optional statistical (ML) model gate -----------------------------------------
+ml:
+  min_records: 500
+  min_cv_auc: 0.70
+  block_size_km: 5.0               # spatial-block cross-validation
+  positive_outcomes: [moderate, good]
+
+# --- ETL helpers: map raw dataset values to the standard classes ------------------
+etl:
+  lithology_aliases:               # case-insensitive "contains" match, LONGEST matching key wins
+    dolerite: dolerite_dyke
+    dyke: dolerite_dyke
+    alluvi: alluvium
+    sand and silt: alluvium
+    sandstone: sandstone
+    conglomerate: sandstone
+    quartzite: quartzite
+    limestone: limestone
+    dolomit: limestone
+    shale: shale
+    clay: shale
+    basalt: basalt
+    trap: basalt
+    schist: schist
+    phyllite: schist
+    greenstone: schist
+    granit: granite_gneiss
+    gneiss: granite_gneiss
+    migmatite: granite_gneiss
+  aquifer_aliases:
+    alluvi: alluvial
+    sandstone: consolidated_sedimentary
+    limestone: consolidated_sedimentary
+    shale: consolidated_sedimentary
+    basalt: basalt_aquifer
+    weathered: weathered_fractured_crystalline
+    fractured: weathered_fractured_crystalline
+    gneiss: weathered_fractured_crystalline
+    granite: weathered_fractured_crystalline
+    massive: massive_crystalline
+  soil_aliases:
+    sandy loam: sandy_loam
+    sandy: sand
+    loam: loam
+    clay loam: clay_loam
+    black: black_cotton
+    regur: black_cotton
+    red: red_soil
+    laterit: lateritic
+    clay: clay
+    rock: skeletal_rocky
+    skeletal: skeletal_rocky

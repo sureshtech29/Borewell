@@ -1,0 +1,99 @@
+# Borewell Water Finder - PostGIS + API + web.
+#   cp .env.example .env     (set POSTGRES_PASSWORD at least)
+#   docker compose up --build
+#   open http://localhost:8080
+#
+# Out of the box this runs on SYNTHETIC DEMONSTRATION data (SEED_DEMO=true, APP_DATA_MODE=demo).
+# To run on real data see README.md, "Switching to real data".
+#
+# The API container publishes NO port on purpose: its rate limiter trusts the X-Real-IP header that the web
+# container's nginx sets, so it must only be reachable through nginx.
+name: borewell-water-finder
+
+services:
+  db:
+    image: postgis/postgis:16-3.4
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: bwf
+      POSTGRES_USER: bwf
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      SEED_DEMO: ${SEED_DEMO:-true}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./backend/db:/seed:ro
+      - ./backend/db/docker-init.sh:/docker-entrypoint-initdb.d/10-init.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bwf -d bwf"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  api:
+    build: ./backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      APP_DATA_MODE: ${APP_DATA_MODE:-demo}
+      APP_DATA_BACKEND: postgis
+      DATABASE_URL: postgresql://bwf:${POSTGRES_PASSWORD}@db:5432/bwf
+      APP_STATE: telangana
+      CONTACT_EMAIL: ${CONTACT_EMAIL:-}
+      SHOW_RECORD_POINTS: ${SHOW_RECORD_POINTS:-}
+      RATE_LIMIT_PER_MIN: ${RATE_LIMIT_PER_MIN:-60}
+      AI_PROVIDER: ${AI_PROVIDER:-openai-compatible}
+      AI_BASE_URL: ${AI_BASE_URL:-https://api.openai.com/v1}
+      AI_MODEL: ${AI_MODEL:-gpt-4o-mini}
+      AI_API_KEY: ${AI_API_KEY:-}
+      ML_MODEL_DIR: /srv/models/${APP_DATA_MODE:-demo}
+    volumes:
+      - models:/srv/models
+    expose: ["8000"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://127.0.0.1:8000/api/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+
+  web:
+    build:
+      context: ./frontend
+      args:
+        # Tile providers: the defaults are for development / light use only. Read frontend/.env.example first.
+        VITE_TILE_STREET_URL: ${VITE_TILE_STREET_URL:-}
+        VITE_TILE_STREET_ATTRIBUTION: ${VITE_TILE_STREET_ATTRIBUTION:-}
+        VITE_TILE_SATELLITE_URL: ${VITE_TILE_SATELLITE_URL:-}
+        VITE_TILE_SATELLITE_ATTRIBUTION: ${VITE_TILE_SATELLITE_ATTRIBUTION:-}
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      API_UPSTREAM: api:8000
+    ports:
+      - "${WEB_PORT:-8080}:8080"
+
+  # One-off data jobs, e.g.
+  #   docker compose --profile tools run --rm tools python -m scripts.etl.load --dry-run geology --file /data/geology.geojson ...
+  #   docker compose --profile tools run --rm tools python -m scripts.compute_potential
+  # Put the files you downloaded in ./data (mounted read-only at /data).
+  tools:
+    profiles: ["tools"]
+    build: ./backend
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      APP_DATA_MODE: ${APP_DATA_MODE:-demo}
+      DATABASE_URL: postgresql://bwf:${POSTGRES_PASSWORD}@db:5432/bwf
+      APP_STATE: telangana
+      ML_MODEL_DIR: /srv/models/${APP_DATA_MODE:-demo}
+    volumes:
+      - ./data:/data:ro
+      - models:/srv/models
+
+volumes:
+  pgdata:
+  models:

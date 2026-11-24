@@ -1,0 +1,12 @@
+# Runtime dependencies (pin ranges are the versions the code was written against; tighten with a lock file for production)
+fastapi>=0.110,<1
+uvicorn[standard]>=0.29,<1
+pydantic>=2.6,<3
+pyyaml>=6
+numpy>=1.26
+jinja2>=3.1
+weasyprint>=61            # PDF reports; needs Pango/Cairo + Telugu fonts (installed in the Dockerfile)
+psycopg[binary]>=3.1,<4
+psycopg-pool>=3.2
+scikit-learn>=1.4         # optional statistical model (train_model.py / serving a trained model)
+joblib>=1.3
