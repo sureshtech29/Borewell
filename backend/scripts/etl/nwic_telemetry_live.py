@@ -125,7 +125,7 @@ def main():
         raise SystemExit("No valid NWIC records fetched; database was not modified")
     with psycopg.connect(db_url, row_factory=dict_row) as conn:
         with conn.cursor() as cur:
-            cur.execute("""
+            cur.executemany("""
                 INSERT INTO groundwater_telemetry_stations
                     (station_code, station_name, district, latitude, longitude, agency)
                 VALUES (%(station_code)s, %(station_name)s, %(district)s,
