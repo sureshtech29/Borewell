@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import logging
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Optional
 
 from fastapi import FastAPI, Request
@@ -62,6 +63,22 @@ def create_app(settings: Optional[Settings] = None, container: Optional[Containe
 
     for r in (meta.router, analysis.router, layers.router, report.router, contact.router, ai.router):
         app.include_router(r, prefix="/api")
+
+    static_dir = Path(__file__).resolve().parents[1] / "static"
+    if static_dir.exists() and (static_dir / "index.html").exists():
+        from fastapi.staticfiles import StaticFiles
+        from fastapi.responses import FileResponse
+
+        if (static_dir / "assets").exists():
+            app.mount("/assets", StaticFiles(directory=str(static_dir / "assets")), name="assets")
+
+        @app.get("/{full_path:path}")
+        async def serve_spa(request: Request, full_path: str):
+            file_path = static_dir / full_path
+            if full_path and file_path.is_file():
+                return FileResponse(file_path)
+            return FileResponse(static_dir / "index.html")
+
     return app
 
 
